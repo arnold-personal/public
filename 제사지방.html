@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>제사 지방 (祭祀 紙榜)</title>
+<style>
+  :root{
+    --card-h: 220mm;          /* 지방 세로 길이 = 22cm (표준 규격) */
+    --card-w-single: 60mm;    /* 부(1줄) 지방 가로 폭 = 6cm (표준 규격) */
+    --card-w-double: 60mm;    /* 조부모(2줄) 지방 가로 폭 = 6cm (필요시 70~80mm로 넓힐 수 있음) */
+    --row-gap: 14mm;          /* 두 복사본 사이 간격 */
+    --ink:#111;
+    --accent:#7a5c2e;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:"Batang","바탕","BatangChe","Nanum Myeongjo","Gungsuh","궁서", serif;
+    color:var(--ink);
+    background:#ece7dc;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+
+  /* ===== 화면 전용 툴바 ===== */
+  .toolbar{
+    position:sticky; top:0; z-index:20;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
+    gap:10px;
+    padding:12px 20px;
+    background:#fff; border-bottom:1px solid #d8cfba;
+    font-family:"Malgun Gothic","맑은 고딕", system-ui, sans-serif;
+  }
+  .toolbar .title{ font-weight:700; font-size:16px; color:var(--accent); }
+  .tabs{ display:flex; gap:8px; }
+  .tab-btn{
+    padding:9px 20px; border:1px solid #c9b48a; background:#fff;
+    border-radius:8px; cursor:pointer; font-size:15px; color:#444;
+    transition:.15s;
+  }
+  .tab-btn:hover{ background:#f5efe2; }
+  .tab-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .weight-toggle{ display:flex; align-items:center; gap:6px; }
+  .weight-toggle .wlabel{ font-size:13px; color:#7c715b; }
+  .w-btn{
+    padding:7px 14px; border:1px solid #c9b48a; background:#fff;
+    border-radius:8px; cursor:pointer; font-size:14px; color:#444; transition:.15s;
+  }
+  .w-btn:hover{ background:#f5efe2; }
+  .w-btn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .print-btn{
+    padding:9px 22px; border:none; background:#2d6a4f; color:#fff;
+    border-radius:8px; cursor:pointer; font-size:15px; font-weight:600;
+  }
+  .print-btn:hover{ background:#245a42; }
+  .hint{
+    font-family:"Malgun Gothic","맑은 고딕", system-ui, sans-serif;
+    text-align:center; font-size:13px; color:#7c715b;
+    padding:10px 16px 0;
+  }
+
+  /* ===== A4 한 장 ===== */
+  .page{
+    display:none;
+    width:210mm; min-height:297mm;
+    margin:18px auto; padding:14mm 12mm;
+    background:#fff;
+    box-shadow:0 3px 16px rgba(0,0,0,.18);
+  }
+  body[data-tab="jobu"] #page-jobu{ display:block; }
+  body[data-tab="bu"]   #page-bu  { display:block; }
+
+  /* ===== 지방 영역 ===== */
+  .jibang-row{
+    display:flex; justify-content:center; align-items:flex-start;
+    gap:var(--row-gap);
+  }
+  .jibang-card{
+    height:var(--card-h);
+    border:1.6px solid #111;
+    display:flex; flex-direction:row; justify-content:center; align-items:flex-start;
+    padding:10mm 4mm;
+    gap:7mm;
+  }
+  .jibang-card.single{ width:var(--card-w-single); }
+  /* 조부모 박스는 두 칸이 박스 안쪽 높이만큼 늘어나도록 stretch */
+  .jibang-card.double{ width:var(--card-w-double); align-items:stretch; }
+
+  .col{
+    display:flex; flex-direction:column; align-items:center;
+    /* 궁서체(붓글씨) 우선. 없으면 바탕/명조로 폴백 — 모두 번체 한자 보유 */
+    font-family:"Gungsuh","궁서","GungsuhChe","바탕","Batang","BatangChe","Nanum Myeongjo", serif;
+    line-height:1.05;
+  }
+  /* 글자 굵기 — 상단 [굵게 / 보통] 버튼으로 선택.
+     궁서는 Bold 페이스가 없어 '굵게'는 외곽선으로 획을 보강함 (0.5px 값을 키우면 더 굵어짐) */
+  body[data-weight="bold"]   .col{ font-weight:bold;   -webkit-text-stroke:0.5px currentColor; }
+  body[data-weight="normal"] .col{ font-weight:normal; -webkit-text-stroke:0; }
+  .col span{ display:block; }
+  /* 부(1줄): 위에서부터 정렬 */
+  .col-single{ font-size:52pt; gap:5mm; }
+  /* 조부모(2줄): 박스 높이에 꽉 차게 펼쳐 두 칸의 상·하 끝을 같은 선에 맞춤 */
+  .col-double{ font-size:40pt; justify-content:space-between; }
+
+  .cut-note{
+    text-align:center; margin-top:2.5mm;
+    font-family:"Malgun Gothic","맑은 고딕", system-ui, sans-serif;
+    font-size:9.5pt; color:#8a8170; letter-spacing:.5px;
+  }
+
+  /* ===== 해설 (하단 공백) ===== */
+  .explain{
+    margin-top:3mm; padding-top:3mm;
+    border-top:1.4px dashed #b3a98f;
+    font-family:"Malgun Gothic","맑은 고딕", system-ui, sans-serif;
+    color:#333;
+  }
+  .explain h3{
+    margin:0 0 2mm; font-size:12pt; color:var(--accent);
+  }
+  .explain .reading{
+    font-size:10pt; margin-bottom:1.5mm; color:#222;
+  }
+  .explain .reading b{ color:#111; }
+  .explain .place{
+    font-size:9.5pt; color:#555; margin-bottom:3mm;
+    background:#f6f1e6; border-radius:6px; padding:4px 8px; display:inline-block;
+  }
+  .terms{
+    display:grid; grid-template-columns:1fr 1fr; gap:1mm 9mm;
+    font-size:9pt; line-height:1.25;
+  }
+  .terms .t b{ color:#111; }
+  .terms .t .han{ font-family:"Batang","바탕", serif; }
+  .edit-tip{
+    margin-top:3mm; font-size:9pt; color:#9a8f78;
+  }
+
+  /* ===== 인쇄 ===== */
+  @media print{
+    @page{ size:A4 portrait; margin:0; }
+    body{ background:#fff; }
+    .no-print{ display:none !important; }
+    .page{
+      margin:0; box-shadow:none; min-height:auto; height:auto;
+      padding:5mm 12mm;
+    }
+    /* 활성 탭 한 장만 인쇄 */
+    body[data-tab="jobu"] #page-jobu{ display:block; }
+    body[data-tab="bu"]   #page-bu  { display:block; }
+  }
+</style>
+</head>
+<body data-tab="jobu" data-weight="bold">
+
+  <div class="toolbar no-print">
+    <span class="title">제사 지방 (祭祀 紙榜)</span>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="jobu">조부모 (조부·조모)</button>
+      <button class="tab-btn" data-tab="bu">부 (아버지)</button>
+    </div>
+    <div class="weight-toggle">
+      <span class="wlabel">글자 굵기</span>
+      <button class="w-btn active" data-weight="bold">굵게</button>
+      <button class="w-btn" data-weight="normal">보통</button>
+    </div>
+    <button class="print-btn" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+  </div>
+  <div class="hint no-print">
+    탭을 선택하면 화면에 보이는 그 한 장만 인쇄됩니다. 인쇄 설정에서 <b>여백: 없음</b>, <b>배율: 100%</b>로 두면 깔끔하게 출력됩니다.
+  </div>
+
+  <!-- ===================== 조부모 ===================== -->
+  <section class="page" id="page-jobu">
+    <div class="jibang-row">
+      <!-- 복사본 1 -->
+      <div class="jibang-card double">
+        <div class="col col-double">顯祖考處士府君神位</div>
+        <div class="col col-double">顯祖妣孺人金寧金氏神位</div>
+      </div>
+      <!-- 복사본 2 (동일) -->
+      <div class="jibang-card double">
+        <div class="col col-double">顯祖考處士府君神位</div>
+        <div class="col col-double">顯祖妣孺人金寧金氏神位</div>
+      </div>
+    </div>
+    <div class="explain">
+      <h3>지방 해설 — 조부모(祖父母)</h3>
+      <div class="reading"><b>독음</b> · (왼쪽 할아버지) 현조고처사부군신위 &nbsp;|&nbsp; (오른쪽 할머니) 현조비유인김녕김씨신위</div>
+      <div class="place">놓는 위치 — 제사상 앞에서 보아 <b>왼쪽이 할아버지(考)</b>, <b>오른쪽이 할머니(妣)</b>입니다.</div>
+      <div class="terms">
+        <div class="t"><b><span class="han">顯</span> (현)</b> — 존경의 뜻을 나타내는 글자</div>
+        <div class="t"><b><span class="han">祖考</span> (조고)</b> — 돌아가신 할아버지</div>
+        <div class="t"><b><span class="han">祖妣</span> (조비)</b> — 돌아가신 할머니</div>
+        <div class="t"><b><span class="han">處士</span> (처사)</b> — 살아서 벼슬을 하지 않은 남자</div>
+        <div class="t"><b><span class="han">孺人</span> (유인)</b> — 처사(벼슬 없는 이)의 부인을 높인 말</div>
+        <div class="t"><b><span class="han">金寧金氏</span> (김녕김씨)</b> — 할머니의 본관·성씨</div>
+        <div class="t"><b><span class="han">府君</span> (부군)</b> — 돌아가신 남자 조상의 높임말</div>
+        <div class="t"><b><span class="han">神位</span> (신위)</b> — 신령(영혼)께서 계신 자리</div>
+      </div>
+      <div class="edit-tip">※ 할머니 본관·성씨가 다르면 위 지방의 <span class="han">金寧金氏</span> 부분만 고쳐 쓰세요. (HTML 소스에서 해당 글자만 교체)</div>
+    </div>
+  </section>
+
+  <!-- ===================== 부(아버지) ===================== -->
+  <section class="page" id="page-bu">
+    <div class="jibang-row">
+      <!-- 복사본 1 -->
+      <div class="jibang-card single">
+        <div class="col col-single">顯考處士府君神位</div>
+      </div>
+      <!-- 복사본 2 (동일) -->
+      <div class="jibang-card single">
+        <div class="col col-single">顯考處士府君神位</div>
+      </div>
+    </div>
+    <div class="explain">
+      <h3>지방 해설 — 부(父, 아버지)</h3>
+      <div class="reading"><b>독음</b> · 현고처사부군신위</div>
+      <div class="place">놓는 위치 — 어머니를 함께 모실 때는 <b>왼쪽이 아버지(考)</b>, <b>오른쪽이 어머니(妣)</b>입니다.</div>
+      <div class="terms">
+        <div class="t"><b><span class="han">顯</span> (현)</b> — 존경의 뜻을 나타내는 글자</div>
+        <div class="t"><b><span class="han">考</span> (고)</b> — 돌아가신 아버지</div>
+        <div class="t"><b><span class="han">處士</span> (처사)</b> — 살아서 벼슬을 하지 않은 남자</div>
+        <div class="t"><b><span class="han">府君</span> (부군)</b> — 돌아가신 아버지의 높임말</div>
+        <div class="t"><b><span class="han">神位</span> (신위)</b> — 신령(영혼)께서 계신 자리</div>
+      </div>
+      <div class="edit-tip">※ 어머니를 함께 모시려면 왼쪽 칸에 <span class="han">顯妣孺人○○○氏神位</span>(현비유인○○○씨신위)를 같은 방식으로 추가해 쓰세요.</div>
+    </div>
+  </section>
+
+  <script>
+    // 세로 지방: 글자 하나씩 블록으로 분리해 안정적으로 세로 정렬
+    document.querySelectorAll('.col').forEach(function(col){
+      var chars = col.textContent.trim().split('');
+      col.textContent = '';
+      chars.forEach(function(ch){
+        var s = document.createElement('span');
+        s.textContent = ch;
+        col.appendChild(s);
+      });
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.body.dataset.tab = btn.dataset.tab;
+      });
+    });
+
+    // 글자 굵기 선택 (굵게 / 보통)
+    document.querySelectorAll('.w-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        document.querySelectorAll('.w-btn').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.body.dataset.weight = btn.dataset.weight;
+      });
+    });
+  </script>
+</body>
+</html>
