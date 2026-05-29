@@ -137,6 +137,23 @@
     margin-top:3mm; font-size:9pt; color:#9a8f78;
   }
 
+  /* ===== 모바일 / 작은 화면 미리보기 (인쇄 출력에는 전혀 영향 없음) ===== */
+  @media screen{
+    /* A4 미리보기 시트를 화면 폭에 맞춰 비례 축소 — JS가 --preview-zoom 설정 (데스크톱은 1) */
+    .page{ zoom: var(--preview-zoom, 1); }
+  }
+  @media screen and (max-width:700px){
+    .toolbar{ flex-direction:column; align-items:stretch; gap:8px; padding:10px 12px; }
+    .toolbar .title{ text-align:center; font-size:15px; }
+    .tabs{ justify-content:center; }
+    .tabs .tab-btn{ flex:1; padding:11px 6px; font-size:14px; }
+    .weight-toggle{ justify-content:center; flex-wrap:wrap; }
+    .weight-toggle .w-btn{ flex:1; padding:11px 6px; font-size:14px; }
+    .print-btn{ width:100%; padding:13px; font-size:16px; }
+    .hint{ font-size:12px; padding:8px 12px 0; line-height:1.5; }
+    .page{ margin:10px auto 24px; }
+  }
+
   /* ===== 인쇄 ===== */
   @media print{
     @page{ size:A4 portrait; margin:0; }
@@ -258,6 +275,17 @@
         document.body.dataset.weight = btn.dataset.weight;
       });
     });
+
+    // 모바일/작은 화면: A4 미리보기 시트를 화면 폭에 맞춰 비례 축소 (데스크톱은 1배)
+    function fitPreview(){
+      var pageW = 210 * 96 / 25.4;                              // A4 가로 = 210mm ≈ 793.7px
+      var avail = document.documentElement.clientWidth - 16;    // 좌우 여백
+      var z = Math.min(1, avail / pageW);
+      document.documentElement.style.setProperty('--preview-zoom', z.toFixed(4));
+    }
+    fitPreview();
+    window.addEventListener('resize', fitPreview);
+    window.addEventListener('orientationchange', fitPreview);
   </script>
 </body>
 </html>

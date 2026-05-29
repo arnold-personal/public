@@ -1,0 +1,10 @@
+# public 저장소에는 제사지방.html 만 공개합니다.
+# 아래 항목은 개인/사내 문서·로컬 설정이라 공개 제외 (필요 시 주석 처리해 포함)
+.claude/
+resume.html
+handover.html
+
+# 임시/시스템 파일
+*.swp
+.DS_Store
+.playwright-mcp/
